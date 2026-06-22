@@ -1,0 +1,187 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: BEM13 ECS CICD | Stack 10 of 11 — RDS PostgreSQL, DB subnet group, RDS SG, Secrets Manager
+
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues: [dev, test, prod]
+  ProjectName:
+    Type: String
+    Default: bem14
+  DBInstanceClass:
+    Type: String
+    Default: db.t3.micro
+  DBName:
+    Type: String
+    Default: photodb
+  MultiAZ:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+  DBAllocatedStorage:
+    Type: Number
+    Default: 20
+  DBEngineVersion:
+    Type: String
+    Default: '16.3'
+
+Resources:
+
+  # ── RDS Security Group ─────────────────────────────────────────
+  # Only ECS tasks may reach PostgreSQL — no public access.
+  RdsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: RDS PostgreSQL — inbound from ECS tasks only
+      VpcId:
+        Fn::ImportValue: !Sub "${Environment}-${ProjectName}-VpcId"
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId:
+            Fn::ImportValue: !Sub "${Environment}-${ProjectName}-EcsSgId"
+          Description: PostgreSQL from ECS tasks only
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-${ProjectName}-rds-sg"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: ManagedBy
+          Value: CloudFormation-GitSync
+
+  # ── DB Subnet Group ────────────────────────────────────────────
+  # Uses the existing private subnets across two AZs.
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: !Sub "${Environment}-${ProjectName} RDS subnet group"
+      SubnetIds:
+        - Fn::ImportValue: !Sub "${Environment}-${ProjectName}-PrivateSubnet1Id"
+        - Fn::ImportValue: !Sub "${Environment}-${ProjectName}-PrivateSubnet2Id"
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-${ProjectName}-db-subnet-group"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # ── Secrets Manager ────────────────────────────────────────────
+  # Auto-generates a 32-character password; attached to RDS after creation.
+  DBSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub "${Environment}/${ProjectName}/rds/credentials"
+      Description: !Sub "RDS PostgreSQL master credentials for ${Environment}-${ProjectName}"
+      GenerateSecretString:
+        SecretStringTemplate: '{"username": "dbadmin"}'
+        GenerateStringKey: password
+        PasswordLength: 32
+        ExcludeCharacters: '"@/\'
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: ManagedBy
+          Value: CloudFormation-GitSync
+
+  # ── RDS PostgreSQL Instance ────────────────────────────────────
+  # Private, encrypted, Multi-AZ controlled by parameter.
+  # DeletionPolicy Snapshot ensures data is preserved on stack delete.
+  DBInstance:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Properties:
+      DBInstanceIdentifier: !Sub "${Environment}-${ProjectName}-db"
+      DBInstanceClass: !Ref DBInstanceClass
+      Engine: postgres
+      EngineVersion: !Ref DBEngineVersion
+      DBName: !Ref DBName
+      MasterUsername: !Sub
+        - "{{resolve:secretsmanager:${SecretArn}:SecretString:username}}"
+        - SecretArn: !Ref DBSecret
+      MasterUserPassword: !Sub
+        - "{{resolve:secretsmanager:${SecretArn}:SecretString:password}}"
+        - SecretArn: !Ref DBSecret
+      AllocatedStorage: !Ref DBAllocatedStorage
+      StorageType: gp3
+      StorageEncrypted: true
+      MultiAZ: !Ref MultiAZ
+      PubliclyAccessible: false
+      VPCSecurityGroups:
+        - !Ref RdsSecurityGroup
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      BackupRetentionPeriod: 7
+      PreferredBackupWindow: 03:00-04:00
+      PreferredMaintenanceWindow: mon:04:00-mon:05:00
+      DeletionProtection: false
+      EnableCloudwatchLogsExports:
+        - postgresql
+        - upgrade
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-${ProjectName}-db"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: ManagedBy
+          Value: CloudFormation-GitSync
+
+  # Binds the secret to the RDS instance so Secrets Manager tracks the endpoint.
+  DBSecretAttachment:
+    Type: AWS::SecretsManager::SecretTargetAttachment
+    Properties:
+      SecretId: !Ref DBSecret
+      TargetId: !Ref DBInstance
+      TargetType: AWS::RDS::DBInstance
+
+  # ── ECS Task Execution Role — Secrets Manager inject access ───
+  # ECS uses the execution role (not the task role) to inject secrets
+  # into container environment variables at launch time.
+  EcsExecSecretsPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub "${Environment}-${ProjectName}-exec-secrets-access"
+      Roles:
+        - !Sub "${Environment}-${ProjectName}-ecs-exec-role"
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: InjectDBSecret
+            Effect: Allow
+            Action:
+              - secretsmanager:GetSecretValue
+              - secretsmanager:DescribeSecret
+            Resource: !Ref DBSecret
+
+Outputs:
+  DBEndpoint:
+    Value: !GetAtt DBInstance.Endpoint.Address
+    Export:
+      Name: !Sub "${Environment}-${ProjectName}-DBEndpoint"
+
+  DBPort:
+    Value: !GetAtt DBInstance.Endpoint.Port
+    Export:
+      Name: !Sub "${Environment}-${ProjectName}-DBPort"
+
+  DBName:
+    Value: !Ref DBName
+    Export:
+      Name: !Sub "${Environment}-${ProjectName}-DBName"
+
+  DBSecretArn:
+    Value: !Ref DBSecret
+    Export:
+      Name: !Sub "${Environment}-${ProjectName}-DBSecretArn"
+
+  RdsSgId:
+    Value: !Ref RdsSecurityGroup
+    Export:
+      Name: !Sub "${Environment}-${ProjectName}-RdsSgId"

@@ -11,7 +11,7 @@ Parameters:
     AllowedValues: [dev, test, prod]
   ProjectName:
     Type: String
-    Default: bem13
+    Default: bem14
 
 Resources:
 

@@ -7,12 +7,17 @@ Parameters:
     AllowedValues: [dev, test, prod]
   ProjectName:
     Type: String
-    Default: bem13
+    Default: bem14
+  CreateAutoScalingServiceLinkedRole:
+    Type: String
+    AllowedValues: [true, false]
+    Default: 'true'
+    Description: Set to false if AWSServiceRoleForApplicationAutoScaling_ECSService already exists in this account
+
 
 Resources:
 
   # ── ECS Task Execution Role ────────────────────────────────────
-  # Allows the ECS agent to pull images from ECR and write logs.
   EcsTaskExecutionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -51,7 +56,6 @@ Resources:
           Value: !Ref Environment
 
   # ── ECS Task Role ──────────────────────────────────────────────
-  # Permissions granted to application code running inside the container.
   EcsTaskRole:
     Type: AWS::IAM::Role
     Properties:
@@ -97,6 +101,7 @@ Resources:
               - Sid: CodeDeploy
                 Effect: Allow
                 Action:
+                  - codedeploy:GetApplication
                   - codedeploy:CreateDeployment
                   - codedeploy:GetDeployment
                   - codedeploy:GetDeploymentConfig
@@ -147,7 +152,6 @@ Resources:
           Value: !Ref Environment
 
   # ── EventBridge Role ───────────────────────────────────────────
-  # Allows EventBridge to start CodePipeline execution on ECR push.
   EventBridgeRole:
     Type: AWS::IAM::Role
     Properties:
@@ -172,63 +176,7 @@ Resources:
         - Key: Environment
           Value: !Ref Environment
 
-  # ── GitHub Actions OIDC Role ───────────────────────────────────
-  # Federated role assumed by GitHub Actions via OIDC — no static keys.
-  GitHubActionsRole:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: !Sub "${Environment}-${ProjectName}-github-actions-role"
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Federated: !Sub "arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com"
-            Action: sts:AssumeRoleWithWebIdentity
-            Condition:
-              StringEquals:
-                token.actions.githubusercontent.com:aud: sts.amazonaws.com
-              StringLike:
-                # Restrict to your GitHub org/repo — update before deploying
-                token.actions.githubusercontent.com:sub: "repo:YOUR_GITHUB_ORG/YOUR_APP_REPO:ref:refs/heads/*"
-      Policies:
-        - PolicyName: ecr-push-and-s3-upload
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Sid: ECRAuth
-                Effect: Allow
-                Action: ecr:GetAuthorizationToken
-                Resource: "*"
-              - Sid: ECRPush
-                Effect: Allow
-                Action:
-                  - ecr:BatchCheckLayerAvailability
-                  - ecr:CompleteLayerUpload
-                  - ecr:UploadLayerPart
-                  - ecr:InitiateLayerUpload
-                  - ecr:PutImage
-                  - ecr:DescribeImages
-                Resource:
-                  - !Sub "arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/${ProjectName}-app"
-              - Sid: S3ArtifactUpload
-                Effect: Allow
-                Action:
-                  - s3:PutObject
-                  - s3:GetObject
-                Resource:
-                  - !Sub "arn:aws:s3:::${AWS::AccountId}-${AWS::Region}-${Environment}-${ProjectName}-artifacts/*"
-              - Sid: ReadCFNExports
-                Effect: Allow
-                Action: cloudformation:ListExports
-                Resource: "*"
-              - Sid: GetCallerIdentity
-                Effect: Allow
-                Action: sts:GetCallerIdentity
-                Resource: "*"
-      Tags:
-        - Key: Environment
-          Value: !Ref Environment
+
 
 Outputs:
   EcsTaskExecutionRoleArn:
@@ -255,8 +203,3 @@ Outputs:
     Value: !GetAtt EventBridgeRole.Arn
     Export:
       Name: !Sub "${Environment}-${ProjectName}-EventBridgeRoleArn"
-
-  GitHubActionsRoleArn:
-    Value: !GetAtt GitHubActionsRole.Arn
-    Export:
-      Name: !Sub "${Environment}-${ProjectName}-GitHubActionsRoleArn"

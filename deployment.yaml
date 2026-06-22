@@ -1,34 +1,28 @@
-# CloudFormation GitSync root deployment file.
-#
-# This file is used by GitSync to deploy the NETWORK stack for the
-# dev environment — the first stack in the dependency chain.
-# Configure one GitSync link per deployment file in deployments/.
-#
-# Deployment order per environment (cross-stack exports must exist
-# before dependent stacks are created):
-#   01-network   →  02-security  →  03-ecr  →  04-iam
-#   05-endpoints →  06-alb       →  07-ecs  →  08-codedeploy
-#   09-pipeline
-#
-# GitSync setup (AWS Console → CloudFormation → each stack):
-#   deployments/dev/01-network.yaml  → stack: dev-bem13-network
-#   deployments/dev/02-security.yaml → stack: dev-bem13-security
-#   ... (repeat for all 9 stacks × 3 environments)
-
-template-file-path: templates/network.yaml
-stack-name: dev-bem13-network
-region: us-east-1
+template-file-path: prod/templates/master.yaml
+stack-name: prod-bem14-master-prod
+region: eu-west-1
 capabilities:
   - CAPABILITY_IAM
   - CAPABILITY_NAMED_IAM
 parameters:
-  StudentName: "Timothy Nlenjibi"
-  LabName: "BEM13"
-  Environment: dev
-  ProjectName: bem13
-  InstanceType: t3.micro
-
+  Environment: prod
+  ProjectName: bem14
+  TemplateBaseUrl: https://bem14-cloudformation-infra.s3.eu-west-1.amazonaws.com/prod/templates
+  AppPort: 8080
+  TestListenerPort: 9090
+  DesiredCount: 1
+  MinCapacity: 1
+  MaxCapacity: 4
+  CpuScaleOutThreshold: 70
+  TaskCpu: 1024
+  TaskMemory: 2048
+  BlueTerminationWaitMinutes: 10
+  DBInstanceClass: db.t3.micro
+  DBName: photodb
+  MultiAZ: 'true'
+  DBAllocatedStorage: 20
+  DBEngineVersion: '16.3'
 tags:
-  Environment: dev
-  Project: bem13-ecs-cicd
+  Environment: prod
+  Project: bem14-ecs-cicd
   ManagedBy: CloudFormation-GitSync

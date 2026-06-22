@@ -70,8 +70,8 @@ token.actions.githubusercontent.com:sub: "repo:YOUR_GITHUB_ORG/YOUR_APP_REPO:ref
 # Example for dev environment, stack 1
 aws cloudformation deploy \
   --template-file templates/network.yaml \
-  --stack-name dev-bem13-network \
-  --parameter-overrides Environment=dev ProjectName=bem13 \
+  --stack-name dev-bem14-network \
+  --parameter-overrides Environment=dev ProjectName=bem14 \
   --capabilities CAPABILITY_NAMED_IAM \
   --region us-east-1
 

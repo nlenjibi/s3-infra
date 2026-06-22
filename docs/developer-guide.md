@@ -73,7 +73,7 @@ ecs-cicd-infra/
 ```
 ecs-cicd-app/
 ├── src/
-│   ├── main/java/com/example/bem13/
+│   ├── main/java/com/example/bem14/
 │   │   ├── Bem13Application.java
 │   │   ├── controller/
 │   │   │   ├── InfoController.java   # GET /api/info
@@ -84,7 +84,7 @@ ecs-cicd-app/
 │   ├── main/resources/
 │   │   ├── application.yaml
 │   │   └── static/index.html         # Dashboard UI
-│   └── test/java/com/example/bem13/
+│   └── test/java/com/example/bem14/
 │       ├── QuoteControllerTest.java
 │       └── InfoControllerTest.java
 ├── codedeploy/
@@ -157,7 +157,7 @@ Locally it defaults to `dev` (configured in `application.yaml`).
 mvn clean package -DskipTests -B
 
 # Run
-java -jar target/bem13app-0.0.1-SNAPSHOT.jar
+java -jar target/bem14app-0.0.1-SNAPSHOT.jar
 
 # Or via Maven plugin
 mvn spring-boot:run
@@ -198,7 +198,7 @@ curl http://localhost:8080/api/quotes/random
 ```dockerfile
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
-COPY target/bem13app-0.0.1-SNAPSHOT.jar app.jar
+COPY target/bem14app-0.0.1-SNAPSHOT.jar app.jar
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]
 ```
@@ -209,8 +209,8 @@ ENTRYPOINT ["java", "-jar", "app.jar"]
 
 ```bash
 mvn clean package -DskipTests -B
-docker build -t bem13app:local .
-docker run -p 8080:8080 -e SPRING_PROFILES_ACTIVE=dev bem13app:local
+docker build -t bem14app:local .
+docker run -p 8080:8080 -e SPRING_PROFILES_ACTIVE=dev bem14app:local
 ```
 
 ### Image tagging strategy
@@ -304,7 +304,7 @@ OIDC lets GitHub prove to AWS "I am a workflow running in repo X on branch Y" wi
 ```
 Settings → Secrets → Actions → New repository secret
 Name:  AWS_ROLE_ARN
-Value: arn:aws:iam::<AccountId>:role/<env>-bem13-github-actions-role
+Value: arn:aws:iam::<AccountId>:role/<env>-bem14-github-actions-role
 ```
 
 No other AWS secrets are needed.
@@ -332,7 +332,7 @@ No other AWS secrets are needed.
 |---|---|---|
 | 1 | `network.yaml` | VPC (10.0.0.0/16), 2 public + 2 private subnets across 2 AZs, IGW, NAT, route tables |
 | 2 | `security.yaml` | ALB SG (port 80 public, 9090 VPC-only), ECS SG (port 8080 from ALB only), Endpoint SG |
-| 3 | `ecr.yaml` | ECR repository `bem13-app`, lifecycle rules (keep 15 per env, expire untagged after 1 day) |
+| 3 | `ecr.yaml` | ECR repository `bem14-app`, lifecycle rules (keep 15 per env, expire untagged after 1 day) |
 | 4 | `iam.yaml` | EcsTaskExecutionRole, EcsTaskRole, CodePipelineRole, CodeDeployRole, EventBridgeRole, GitHubActionsRole |
 | 5 | `endpoints.yaml` | VPC interface endpoints: ECR API, ECR DKR, CloudWatch Logs; S3 gateway endpoint |
 | 6 | `alb.yaml` | Internet-facing ALB, BlueTargetGroup, GreenTargetGroup, production listener (port 80), test listener (port 9090) |
@@ -352,12 +352,12 @@ Subnets:
 ### Stack naming convention
 
 ```
-{env}-bem13-{component}
+{env}-bem14-{component}
 
 Examples:
-  dev-bem13-network
-  prod-bem13-ecs
-  test-bem13-pipeline
+  dev-bem14-network
+  prod-bem14-ecs
+  test-bem14-pipeline
 ```
 
 ---
@@ -489,19 +489,19 @@ GitSync watches your Git repository and automatically updates CloudFormation sta
 ```yaml
 # deployments/dev/01-network.yaml
 template-file-path: templates/network.yaml
-stack-name: dev-bem13-network
+stack-name: dev-bem14-network
 region: us-east-1
 capabilities:
   - CAPABILITY_NAMED_IAM
 parameters:
   Environment: dev
-  ProjectName: bem13
+  ProjectName: bem14
 tags:
   Environment: dev
   ManagedBy: CloudFormation-GitSync
 ```
 
-Push a change to `templates/network.yaml` → GitSync updates `dev-bem13-network` automatically.
+Push a change to `templates/network.yaml` → GitSync updates `dev-bem14-network` automatically.
 
 ---
 
@@ -546,8 +546,8 @@ token.actions.githubusercontent.com:sub: "repo:nlenjibi/ecs-cicd-app:ref:refs/he
 ```bash
 aws cloudformation deploy \
   --template-file templates/network.yaml \
-  --stack-name dev-bem13-network \
-  --parameter-overrides Environment=dev ProjectName=bem13 \
+  --stack-name dev-bem14-network \
+  --parameter-overrides Environment=dev ProjectName=bem14 \
   --capabilities CAPABILITY_NAMED_IAM \
   --region us-east-1
 # Repeat for stacks 2–9
@@ -557,7 +557,7 @@ aws cloudformation deploy \
 
 ```bash
 aws cloudformation describe-stacks \
-  --stack-name prod-bem13-iam \
+  --stack-name prod-bem14-iam \
   --query "Stacks[0].Outputs[?OutputKey=='GitHubActionsRoleArn'].OutputValue" \
   --output text
 ```
@@ -565,7 +565,7 @@ aws cloudformation describe-stacks \
 In GitHub → Settings → Secrets → Actions:
 ```
 Name:  AWS_ROLE_ARN
-Value: arn:aws:iam::<AccountId>:role/prod-bem13-github-actions-role
+Value: arn:aws:iam::<AccountId>:role/prod-bem14-github-actions-role
 ```
 
 ### 5. Push a bootstrap image to ECR
@@ -575,8 +575,8 @@ aws ecr get-login-password --region us-east-1 | \
   docker login --username AWS --password-stdin <AccountId>.dkr.ecr.us-east-1.amazonaws.com
 
 mvn clean package -DskipTests -B
-docker build -t <AccountId>.dkr.ecr.us-east-1.amazonaws.com/bem13-app:prod-latest .
-docker push <AccountId>.dkr.ecr.us-east-1.amazonaws.com/bem13-app:prod-latest
+docker build -t <AccountId>.dkr.ecr.us-east-1.amazonaws.com/bem14-app:prod-latest .
+docker push <AccountId>.dkr.ecr.us-east-1.amazonaws.com/bem14-app:prod-latest
 ```
 
 After this, every `git push` triggers the full automated pipeline.
@@ -643,7 +643,7 @@ The deploy-artifacts.zip was not uploaded before the ECR push. Check the GitHub 
 
 - Health check: `GET /health` → plain text `OK`
 - `HealthCheckGracePeriodSeconds: 60` gives Spring Boot 60s to start
-- Check CloudWatch Logs at `/ecs/{env}-bem13` for startup errors
+- Check CloudWatch Logs at `/ecs/{env}-bem14` for startup errors
 
 ### ECR image pull fails in ECS (private subnet)
 

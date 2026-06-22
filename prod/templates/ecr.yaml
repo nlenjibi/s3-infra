@@ -7,18 +7,14 @@ Parameters:
     AllowedValues: [dev, test, prod]
   ProjectName:
     Type: String
-    Default: bem13
+    Default: bem14
 
 Resources:
 
   Repository:
     Type: AWS::ECR::Repository
     Properties:
-      RepositoryName: !Sub "${ProjectName}-app"
-      # Immutable tags: once pushed, a tag cannot be overwritten.
-      # The mutable "{env}-latest" tag is intentionally omitted from
-      # the immutability rule — it acts as a pointer so EventBridge
-      # can watch a stable tag name per environment.
+      RepositoryName: !Sub "${ProjectName}-java-app"
       ImageTagMutability: MUTABLE
       ImageScanningConfiguration:
         ScanOnPush: true
@@ -30,23 +26,12 @@ Resources:
             "rules": [
               {
                 "rulePriority": 1,
-                "description": "Retain last 15 immutable commit-tagged images per env",
-                "selection": {
-                  "tagStatus": "tagged",
-                  "tagPrefixList": ["dev-", "test-", "prod-"],
-                  "countType": "imageCountMoreThan",
-                  "countNumber": 15
-                },
-                "action": { "type": "expire" }
-              },
-              {
-                "rulePriority": 2,
-                "description": "Remove untagged images after 1 day",
+                "description": "Delete untagged images older than 30 days",
                 "selection": {
                   "tagStatus": "untagged",
                   "countType": "sinceImagePushed",
                   "countUnit": "days",
-                  "countNumber": 1
+                  "countNumber": 30
                 },
                 "action": { "type": "expire" }
               }

@@ -1,0 +1,159 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: BEM13 ECS CICD | Stack 11 of 11 — Private S3 images bucket + CloudFront OAC distribution
+
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues: [dev, test, prod]
+  ProjectName:
+    Type: String
+    Default: bem14
+
+Resources:
+
+  # ── S3 Images Bucket ───────────────────────────────────────────
+  # All public access blocked. Images are served exclusively through
+  # the CloudFront distribution via OAC — never directly from S3.
+  ImagesBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${AWS::AccountId}-${AWS::Region}-${Environment}-${ProjectName}-images"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Suspended
+      LifecycleConfiguration:
+        Rules:
+          - Id: abort-incomplete-multipart
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-${ProjectName}-images"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: ManagedBy
+          Value: CloudFormation-GitSync
+
+  # ── CloudFront Origin Access Control ──────────────────────────
+  # OAC (SigV4) replaces the legacy OAI for S3 origins.
+  CloudFrontOAC:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub "${Environment}-${ProjectName}-oac"
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  # ── CloudFront Distribution ────────────────────────────────────
+  # PriceClass_200 covers North America, Europe, and parts of Asia/Pacific.
+  # Serves images from the private S3 bucket over HTTPS.
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Comment: !Sub "${Environment}-${ProjectName} photo gallery CDN"
+        Enabled: true
+        PriceClass: PriceClass_200
+        HttpVersion: http2
+        IPV6Enabled: true
+        DefaultRootObject: ''
+        Origins:
+          - Id: S3Origin
+            DomainName: !GetAtt ImagesBucket.RegionalDomainName
+            S3OriginConfig:
+              OriginAccessIdentity: ''
+            OriginAccessControlId: !GetAtt CloudFrontOAC.Id
+        DefaultCacheBehavior:
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          # Managed-CachingOptimized policy — caches GET/HEAD with no query strings
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+          AllowedMethods: [GET, HEAD]
+          CachedMethods: [GET, HEAD]
+          Compress: true
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: ManagedBy
+          Value: CloudFormation-GitSync
+
+  # ── S3 Bucket Policy ───────────────────────────────────────────
+  # Grants CloudFront OAC read access via service principal condition.
+  # Denies all other s3:GetObject requests, including direct S3 URLs.
+  ImagesBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ImagesBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowCloudFrontOAC
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub "${ImagesBucket.Arn}/*"
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub
+                  - "arn:aws:cloudfront::${AWS::AccountId}:distribution/${DistId}"
+                  - DistId: !Ref CloudFrontDistribution
+
+  # ── ECS Task Role — S3 upload access ──────────────────────────
+  # Adds an inline policy to the existing task role so the Spring Boot
+  # app can put images into the private bucket during upload.
+  EcsS3UploadPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub "${Environment}-${ProjectName}-s3-images-upload"
+      Roles:
+        - !Sub "${Environment}-${ProjectName}-ecs-task-role"
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: S3ImageUpload
+            Effect: Allow
+            Action:
+              - s3:PutObject
+              - s3:GetObject
+              - s3:DeleteObject
+            Resource: !Sub "${ImagesBucket.Arn}/*"
+          - Sid: S3ListBucket
+            Effect: Allow
+            Action: s3:ListBucket
+            Resource: !GetAtt ImagesBucket.Arn
+
+Outputs:
+  ImagesBucketName:
+    Value: !Ref ImagesBucket
+    Export:
+      Name: !Sub "${Environment}-${ProjectName}-ImagesBucketName"
+
+  ImagesBucketArn:
+    Value: !GetAtt ImagesBucket.Arn
+    Export:
+      Name: !Sub "${Environment}-${ProjectName}-ImagesBucketArn"
+
+  CloudFrontDomainName:
+    Value: !GetAtt CloudFrontDistribution.DomainName
+    Export:
+      Name: !Sub "${Environment}-${ProjectName}-CloudFrontDomainName"
+
+  CloudFrontDistributionId:
+    Value: !Ref CloudFrontDistribution
+    Export:
+      Name: !Sub "${Environment}-${ProjectName}-CloudFrontDistributionId"

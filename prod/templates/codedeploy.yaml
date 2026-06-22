@@ -7,7 +7,7 @@ Parameters:
     AllowedValues: [dev, test, prod]
   ProjectName:
     Type: String
-    Default: bem13
+    Default: bem14
   # Minutes to keep the old (blue) task set alive after traffic cuts to green.
   BlueTerminationWaitMinutes:
     Type: Number
@@ -40,6 +40,11 @@ Resources:
       ServiceRoleArn:
         Fn::ImportValue: !Sub "${Environment}-${ProjectName}-CodeDeployRoleArn"
       DeploymentConfigName: CodeDeployDefault.ECSAllAtOnce
+      AutoRollbackConfiguration:
+        Enabled: true
+        Events:
+          - DEPLOYMENT_FAILURE
+          - DEPLOYMENT_STOP_ON_ALARM
       DeploymentStyle:
         DeploymentType: BLUE_GREEN
         DeploymentOption: WITH_TRAFFIC_CONTROL

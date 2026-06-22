@@ -7,7 +7,7 @@ Parameters:
     AllowedValues: [dev, test, prod]
   ProjectName:
     Type: String
-    Default: bem13
+    Default: bem14
 
 Resources:
 
@@ -126,23 +126,23 @@ Resources:
       RouteTableId: !Ref PublicRT
 
   # ── NAT Gateway ────────────────────────────────────────────────
-  NatEIP:
-    Type: AWS::EC2::EIP
-    DependsOn: IGWAttachment
-    Properties:
-      Domain: vpc
-      Tags:
-        - Key: Name
-          Value: !Sub "${Environment}-${ProjectName}-nat-eip"
-
   NatGateway:
     Type: AWS::EC2::NatGateway
+    DependsOn: IGWAttachment
     Properties:
-      AllocationId: !GetAtt NatEIP.AllocationId
-      SubnetId: !Ref PublicSubnet1
+      ConnectivityType: public
+      AvailabilityMode: regional
+      VpcId: !Ref VPC
       Tags:
         - Key: Name
           Value: !Sub "${Environment}-${ProjectName}-nat"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+      
+
+
 
   # ── Private Routing ────────────────────────────────────────────
   PrivateRT:
