@@ -21,7 +21,7 @@ parameters:
   DBName: photodb
   MultiAZ: 'true'
   DBAllocatedStorage: 20
-  DBEngineVersion: '16.3'
+  DBEngineVersion: '15.16'
 tags:
   Environment: prod
   Project: bem14-ecs-cicd

@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C \"/c/Users/TimothyNlenjibi/Desktop/projects/djangoNew/s3-infra\" status)",
+      "Bash(git -C \"/c/Users/TimothyNlenjibi/Desktop/projects/djangoNew/s3-infra\" diff)",
+      "Bash(git -C \"/c/Users/TimothyNlenjibi/Desktop/projects/djangoNew/s3-infra\" add prod/templates/rds.yaml)",
+      "Bash(git -C /c/Users/TimothyNlenjibi/Desktop/projects/djangoNew/s3-infra commit -m ' *)",
+      "Bash(git *)"
+    ]
+  }
+}
