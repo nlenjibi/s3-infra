@@ -1,28 +1,3 @@
 template-file-path: prod/templates/master.yaml
-stack-name: prod-bem14-master-prod
-region: eu-west-1
-capabilities:
-  - CAPABILITY_IAM
-  - CAPABILITY_NAMED_IAM
-parameters:
-  Environment: prod
-  ProjectName: bem14
-  TemplateBaseUrl: https://bem14-cloudformation-infra.s3.eu-west-1.amazonaws.com/prod/templates
-  AppPort: 8080
-  TestListenerPort: 9090
-  DesiredCount: 1
-  MinCapacity: 1
-  MaxCapacity: 4
-  CpuScaleOutThreshold: 70
-  TaskCpu: 1024
-  TaskMemory: 2048
-  BlueTerminationWaitMinutes: 10
-  DBInstanceClass: db.t3.micro
-  DBName: photodb
-  MultiAZ: 'true'
-  DBAllocatedStorage: 20
-  DBEngineVersion: '16.3'
-tags:
-  Environment: prod
-  Project: bem14-ecs-cicd
-  ManagedBy: CloudFormation-GitSync
+parameters: {}
+tags: {}
