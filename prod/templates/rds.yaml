@@ -32,7 +32,7 @@ Resources:
   RdsSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: RDS PostgreSQL — inbound from ECS tasks only
+      GroupDescription: RDS PostgreSQL inbound from ECS tasks only
       VpcId:
         Fn::ImportValue: !Sub "${Environment}-${ProjectName}-VpcId"
       SecurityGroupIngress:
