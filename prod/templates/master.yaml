@@ -57,7 +57,7 @@ Parameters:
     Default: 20
   DBEngineVersion:
     Type: String
-    Default: '16.3'
+    Default: '15.16'
 
 Resources:
 
