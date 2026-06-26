@@ -84,6 +84,8 @@ Resources:
           CachedMethods: [GET, HEAD]
           Compress: true
       Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-${ProjectName}-cloudfront"
         - Key: Environment
           Value: !Ref Environment
         - Key: Project
