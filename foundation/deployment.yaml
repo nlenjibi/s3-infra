@@ -1,0 +1,15 @@
+template-file-path: foundation/foundation.yaml
+stack-name: prod-bem14-foundation
+region: eu-west-1
+capabilities:
+  - CAPABILITY_IAM
+  - CAPABILITY_NAMED_IAM
+parameters:
+  Environment: prod
+  ProjectName: bem14
+  GitHubOrg: nlenjibi
+  GitHubRepo: s3-app
+tags:
+  Environment: prod
+  Project: bem14-s3-app
+  ManagedBy: CloudFormation-GitSync

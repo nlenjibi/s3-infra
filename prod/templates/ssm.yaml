@@ -1,0 +1,122 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  BEM14 S3 App | Stack 11 of 11 — SSM Parameter Store.
+  Centralises all deployment config. GitHub Actions reads role ARNs,
+  bucket name, and DB secret ARN from here via OIDC-authenticated API
+  calls. Runtime values (spring profile, DB host, images bucket,
+  CloudFront domain) are resolved by ECS at task launch via
+  secrets.valueFrom — CI never touches those values.
+
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues: [dev, test, prod]
+  ProjectName:
+    Type: String
+    Default: bem14
+
+Resources:
+
+  EcrRepoUriParam:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub "/${ProjectName}/${Environment}/ecr/image-uri"
+      Type: String
+      Description: Full ECR repository URI (without tag)
+      Value:
+        Fn::ImportValue: !Sub "${Environment}-${ProjectName}-RepositoryUri"
+      Tags:
+        Environment: !Ref Environment
+        Project: !Ref ProjectName
+        ManagedBy: CloudFormation-GitSync
+
+  EcsExecRoleParam:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub "/${ProjectName}/${Environment}/ecs/exec-role-arn"
+      Type: String
+      Description: ECS task execution role ARN
+      Value:
+        Fn::ImportValue: !Sub "${Environment}-${ProjectName}-EcsTaskExecutionRoleArn"
+      Tags:
+        Environment: !Ref Environment
+        Project: !Ref ProjectName
+        ManagedBy: CloudFormation-GitSync
+
+  EcsTaskRoleParam:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub "/${ProjectName}/${Environment}/ecs/task-role-arn"
+      Type: String
+      Description: ECS task role ARN
+      Value:
+        Fn::ImportValue: !Sub "${Environment}-${ProjectName}-EcsTaskRoleArn"
+      Tags:
+        Environment: !Ref Environment
+        Project: !Ref ProjectName
+        ManagedBy: CloudFormation-GitSync
+
+  ArtifactsBucketParam:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub "/${ProjectName}/${Environment}/s3/artifacts-bucket"
+      Type: String
+      Description: S3 bucket name for CodeDeploy artifacts
+      Value:
+        Fn::ImportValue: !Sub "${Environment}-${ProjectName}-ArtifactsBucket"
+      Tags:
+        Environment: !Ref Environment
+        Project: !Ref ProjectName
+        ManagedBy: CloudFormation-GitSync
+
+  # ── Runtime values resolved by ECS, NOT by CI ──────────────────
+  SpringProfileParam:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub "/${ProjectName}/${Environment}/app/spring-profile"
+      Type: String
+      Description: SPRING_PROFILES_ACTIVE — injected by ECS at task startup via secrets.valueFrom
+      Value: !Ref Environment
+      Tags:
+        Environment: !Ref Environment
+        Project: !Ref ProjectName
+        ManagedBy: CloudFormation-GitSync
+
+  DbHostParam:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub "/${ProjectName}/${Environment}/db/host"
+      Type: String
+      Description: RDS instance endpoint — injected by ECS at task startup via secrets.valueFrom
+      Value:
+        Fn::ImportValue: !Sub "${Environment}-${ProjectName}-DBEndpoint"
+      Tags:
+        Environment: !Ref Environment
+        Project: !Ref ProjectName
+        ManagedBy: CloudFormation-GitSync
+
+  ImagesBucketParam:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub "/${ProjectName}/${Environment}/s3/images-bucket"
+      Type: String
+      Description: S3 images bucket name — injected by ECS at task startup via secrets.valueFrom
+      Value:
+        Fn::ImportValue: !Sub "${Environment}-${ProjectName}-ImagesBucketName"
+      Tags:
+        Environment: !Ref Environment
+        Project: !Ref ProjectName
+        ManagedBy: CloudFormation-GitSync
+
+  CloudFrontDomainParam:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub "/${ProjectName}/${Environment}/cloudfront/domain"
+      Type: String
+      Description: CloudFront distribution domain — injected by ECS at task startup via secrets.valueFrom
+      Value:
+        Fn::ImportValue: !Sub "${Environment}-${ProjectName}-CloudFrontDomainName"
+      Tags:
+        Environment: !Ref Environment
+        Project: !Ref ProjectName
+        ManagedBy: CloudFormation-GitSync

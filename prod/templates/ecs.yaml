@@ -31,7 +31,7 @@ Parameters:
     Default: '1024'
   InitialImage:
     Type: String
-    Default: "public.ecr.aws/nginx/nginx:stable"
+    Description: Private ECR image URI for the bootstrap task definition (passed from master.yaml)
 
 Resources:
 

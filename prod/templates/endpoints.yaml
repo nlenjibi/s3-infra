@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: BEM13 ECS CICD | Stack 5 of 9 — VPC endpoints for ECR, S3, CloudWatch
+Description: BEM14 S3 App | Stack 4 of 11 — VPC endpoints for ECR, S3, CloudWatch, SSM, Secrets Manager
 
 # Required so ECS Fargate tasks in private subnets can reach AWS
 # services (ECR for image pulls, CloudWatch for logs) without a
@@ -101,9 +101,63 @@ Resources:
         - Fn::ImportValue: !Sub "${Environment}-${ProjectName}-PrivateSubnet2Id"
       SecurityGroupIds:
         - Fn::ImportValue: !Sub "${Environment}-${ProjectName}-VpcEndpointSgId"
-      Tags: 
+      Tags:
         - Key: Name
           Value: !Sub "${Environment}-${ProjectName}-cloudwatch-logs-endpoint"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: ManagedBy
+          Value: CloudFormation-GitSync
+
+  # ── Secrets Manager (Interface) ────────────────────────────────
+  # ECS resolves secrets.valueFrom Secrets Manager ARNs at task
+  # launch (DB_USERNAME, DB_PASSWORD). Without this endpoint, tasks
+  # in private subnets cannot reach Secrets Manager.
+  SecretsManagerEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId:
+        Fn::ImportValue: !Sub "${Environment}-${ProjectName}-VpcId"
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.secretsmanager"
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds:
+        - Fn::ImportValue: !Sub "${Environment}-${ProjectName}-PrivateSubnet1Id"
+        - Fn::ImportValue: !Sub "${Environment}-${ProjectName}-PrivateSubnet2Id"
+      SecurityGroupIds:
+        - Fn::ImportValue: !Sub "${Environment}-${ProjectName}-VpcEndpointSgId"
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-${ProjectName}-secretsmanager-endpoint"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: ManagedBy
+          Value: CloudFormation-GitSync
+
+  # ── SSM (Interface) ────────────────────────────────────────────
+  # ECS resolves secrets.valueFrom SSM parameter names at task
+  # launch (SPRING_PROFILES_ACTIVE, DB_HOST, IMAGES_BUCKET,
+  # CLOUDFRONT_DOMAIN). Required in private subnets with no NAT.
+  SsmEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId:
+        Fn::ImportValue: !Sub "${Environment}-${ProjectName}-VpcId"
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.ssm"
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds:
+        - Fn::ImportValue: !Sub "${Environment}-${ProjectName}-PrivateSubnet1Id"
+        - Fn::ImportValue: !Sub "${Environment}-${ProjectName}-PrivateSubnet2Id"
+      SecurityGroupIds:
+        - Fn::ImportValue: !Sub "${Environment}-${ProjectName}-VpcEndpointSgId"
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-${ProjectName}-ssm-endpoint"
         - Key: Environment
           Value: !Ref Environment
         - Key: Project
