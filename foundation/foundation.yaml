@@ -20,37 +20,6 @@ Parameters:
 
 Resources:
 
-  # ── CloudFormation Template Bucket ─────────────────────────────
-  # Holds prod/templates/*.yaml — master.yaml's nested stacks read
-  # TemplateURL from here. Pre-existing bucket, imported into this
-  # stack rather than created fresh (see import steps in the PR/docs).
-  TemplateBucket:
-    Type: AWS::S3::Bucket
-    DeletionPolicy: Retain
-    UpdateReplacePolicy: Retain
-    Properties:
-      BucketName: bem14-cloudformation-infra
-      VersioningConfiguration:
-        Status: Enabled
-      BucketEncryption:
-        ServerSideEncryptionConfiguration:
-          - ServerSideEncryptionByDefault:
-              SSEAlgorithm: AES256
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        BlockPublicPolicy: true
-        IgnorePublicAcls: true
-        RestrictPublicBuckets: true
-      Tags:
-        - Key: Name
-          Value: bem14-cloudformation-infra
-        - Key: Environment
-          Value: !Ref Environment
-        - Key: Project
-          Value: !Ref ProjectName
-        - Key: ManagedBy
-          Value: CloudFormation-GitSync
-
   # ── ECR Repository ─────────────────────────────────────────────
   Repository:
     Type: AWS::ECR::Repository
@@ -171,18 +140,19 @@ Resources:
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
-              # sync-infra.yml runs `aws s3 sync --delete` against TemplateBucket
+              # sync-infra.yml runs `aws s3 sync --delete` against the template
+              # bucket. Not managed by this stack — referenced by name only.
               - Sid: S3TemplatesBucketList
                 Effect: Allow
                 Action: s3:ListBucket
-                Resource: !GetAtt TemplateBucket.Arn
+                Resource: arn:aws:s3:::bem14-cloudformation-infra
               - Sid: S3TemplatesObjectSync
                 Effect: Allow
                 Action:
                   - s3:PutObject
                   - s3:GetObject
                   - s3:DeleteObject
-                Resource: !Sub "${TemplateBucket.Arn}/*"
+                Resource: arn:aws:s3:::bem14-cloudformation-infra/*
         - PolicyName: ssm-read-deploy-config
           PolicyDocument:
             Version: '2012-10-17'
@@ -207,16 +177,6 @@ Resources:
           Value: CloudFormation-GitSync
 
 Outputs:
-  TemplateBucketName:
-    Value: !Ref TemplateBucket
-    Export:
-      Name: !Sub "${Environment}-${ProjectName}-TemplateBucketName"
-
-  TemplateBucketArn:
-    Value: !GetAtt TemplateBucket.Arn
-    Export:
-      Name: !Sub "${Environment}-${ProjectName}-TemplateBucketArn"
-
   RepositoryUri:
     Value: !GetAtt Repository.RepositoryUri
     Export:
