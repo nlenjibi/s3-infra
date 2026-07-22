@@ -331,11 +331,11 @@ No other AWS secrets are needed.
 | # | Template | Creates |
 |---|---|---|
 | 1 | `network.yaml` | VPC (10.0.0.0/16), 2 public + 2 private subnets across 2 AZs, IGW, NAT, route tables |
-| 2 | `security.yaml` | ALB SG (port 80 public, 9090 VPC-only), ECS SG (port 8080 from ALB only), Endpoint SG |
+| 2 | `security.yaml` | ALB SG (port 80 public), ECS SG (port 8080 from ALB only), Endpoint SG |
 | 3 | `ecr.yaml` | ECR repository `bem14-app`, lifecycle rules (keep 15 per env, expire untagged after 1 day) |
 | 4 | `iam.yaml` | EcsTaskExecutionRole, EcsTaskRole, CodePipelineRole, CodeDeployRole, EventBridgeRole, GitHubActionsRole |
 | 5 | `endpoints.yaml` | VPC interface endpoints: ECR API, ECR DKR, CloudWatch Logs; S3 gateway endpoint |
-| 6 | `alb.yaml` | Internet-facing ALB, BlueTargetGroup, GreenTargetGroup, production listener (port 80), test listener (port 9090) |
+| 6 | `alb.yaml` | Internet-facing ALB, BlueTargetGroup, GreenTargetGroup, production listener (port 80) |
 | 7 | `ecs.yaml` | CloudWatch log group, ECS cluster (Container Insights), task definition, Fargate service (CODE_DEPLOY), auto scaling CPU 70% |
 | 8 | `codedeploy.yaml` | CodeDeploy application, ECS blue/green deployment group |
 | 9 | `pipeline.yaml` | S3 artifact bucket (versioned + KMS), EventBridge rule (ECR push → start pipeline), CodePipeline |
@@ -401,7 +401,6 @@ User → Internet → ALB (port 80, public) → ECS task (port 8080, private)
 | Direction | Port | Source | Reason |
 |---|---|---|---|
 | Inbound | 80 | 0.0.0.0/0 | Public HTTP traffic |
-| Inbound | 9090 | VPC CIDR only | CodeDeploy green validation (not public) |
 | Outbound | 8080 | VPC CIDR | Forward to ECS tasks |
 
 ### ECS Security Group
@@ -458,22 +457,26 @@ Developer pushes to dev / test / main
 
 ```
 ALB
- ├── Port 80   (Production Listener) → Blue TG  (current live)
- └── Port 9090 (Test Listener)       → Green TG (new version)
+ └── Port 80 (Production Listener) → Blue TG (current live)
+                                       ↓ swapped on deploy
+                                     Green TG (new version)
 ```
+
+Single listener — CodeDeploy re-points the production listener's default
+action from Blue TG to Green TG during the deployment; it does not add a
+second listener/port.
 
 ### CodeDeploy sequence
 
 ```
 1. Registers new ECS task definition revision
 2. Starts new containers (green slot) in private subnets
-3. Registers them with Green Target Group (port 9090)
+3. Registers them with Green Target Group
 4. Health checks pass on GET /health
-5. Validation window — test new version on port 9090
-6. Production listener (port 80) swapped to Green TG
+5. Production listener (port 80) swapped to Green TG
    → Users now hit the new containers
-7. Wait BlueTerminationWaitMinutes (5 min dev/test, 10 min prod)
-8. Old (blue) containers terminated
+6. Wait BlueTerminationWaitMinutes (5 min dev/test, 10 min prod)
+7. Old (blue) containers terminated
 ```
 
 **Rollback:** if health checks fail at step 4, CodeDeploy automatically keeps the blue containers running and terminates the green ones. Zero downtime.

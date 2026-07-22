@@ -11,19 +11,15 @@ Parameters:
   AppPort:
     Type: Number
     Default: 8080
-  TestListenerPort:
-    Type: Number
-    Default: 9090
 
 Resources:
 
   # ── ALB Security Group ─────────────────────────────────────────
-  # Public-facing: allows HTTP (80) production traffic and port 9090
-  # for CodeDeploy's green-slot validation traffic.
+  # Public-facing: allows HTTP (80) production traffic only.
   AlbSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: ALB - HTTP from internet, test listener restricted to VPC
+      GroupDescription: ALB - HTTP from internet
       VpcId:
         Fn::ImportValue: !Sub "${Environment}-${ProjectName}-VpcId"
       SecurityGroupIngress:
@@ -32,12 +28,6 @@ Resources:
           ToPort: 80
           CidrIp: 0.0.0.0/0
           Description: HTTP production traffic
-        - IpProtocol: tcp
-          FromPort: !Ref TestListenerPort
-          ToPort: !Ref TestListenerPort
-          CidrIp:
-            Fn::ImportValue: !Sub "${Environment}-${ProjectName}-VpcCidr"
-          Description: CodeDeploy green-slot validation (VPC only)
       SecurityGroupEgress:
         - IpProtocol: tcp
           FromPort: !Ref AppPort
@@ -104,6 +94,30 @@ Resources:
         - Key: ManagedBy
           Value: CloudFormation-GitSync
 
+  # ── RDS Security Group ─────────────────────────────────────────
+  # Only ECS tasks may reach PostgreSQL — no public access.
+  RdsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: RDS PostgreSQL inbound from ECS tasks only
+      VpcId:
+        Fn::ImportValue: !Sub "${Environment}-${ProjectName}-VpcId"
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !Ref EcsSecurityGroup
+          Description: PostgreSQL from ECS tasks only
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-${ProjectName}-rds-sg"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: ManagedBy
+          Value: CloudFormation-GitSync
+
 Outputs:
   AlbSgId:
     Value: !Ref AlbSecurityGroup
@@ -119,3 +133,8 @@ Outputs:
     Value: !Ref VpcEndpointSecurityGroup
     Export:
       Name: !Sub "${Environment}-${ProjectName}-VpcEndpointSgId"
+
+  RdsSgId:
+    Value: !Ref RdsSecurityGroup
+    Export:
+      Name: !Sub "${Environment}-${ProjectName}-RdsSgId"

@@ -11,9 +11,6 @@ Parameters:
   AppPort:
     Type: Number
     Default: 8080
-  TestListenerPort:
-    Type: Number
-    Default: 9090
 
 Resources:
 
@@ -120,28 +117,6 @@ Resources:
           Value: !Ref ProjectName
         - Key: ManagedBy
           Value: CloudFormation-GitSync
-
-  # ── Test Listener (port 9090) ──────────────────────────────────
-  # CodeDeploy routes green-slot traffic here during validation
-  # before committing the production cut-over.
-  TestListener:
-    Type: AWS::ElasticLoadBalancingV2::Listener
-    Properties:
-      LoadBalancerArn: !Ref ALB
-      Port: !Ref TestListenerPort
-      Protocol: HTTP
-      DefaultActions:
-        - Type: forward
-          TargetGroupArn: !Ref GreenTargetGroup
-      Tags: 
-        - Key: Name
-          Value: !Sub "${Environment}-${ProjectName}-test-listener"
-        - Key: Environment
-          Value: !Ref Environment
-        - Key: Project
-          Value: !Ref ProjectName
-        - Key: ManagedBy
-          Value: CloudFormation-GitSync
 Outputs:
   AlbDnsName:
     Value: !GetAtt ALB.DNSName
@@ -177,8 +152,3 @@ Outputs:
     Value: !Ref ProductionListener
     Export:
       Name: !Sub "${Environment}-${ProjectName}-ProductionListenerArn"
-
-  TestListenerArn:
-    Value: !Ref TestListener
-    Export:
-      Name: !Sub "${Environment}-${ProjectName}-TestListenerArn"

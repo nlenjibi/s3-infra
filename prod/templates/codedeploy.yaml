@@ -65,9 +65,6 @@ Resources:
           - ProdTrafficRoute:
               ListenerArns:
                 - Fn::ImportValue: !Sub "${Environment}-${ProjectName}-ProductionListenerArn"
-            TestTrafficRoute:
-              ListenerArns:
-                - Fn::ImportValue: !Sub "${Environment}-${ProjectName}-TestListenerArn"
             TargetGroups:
               - Name:
                   Fn::ImportValue: !Sub "${Environment}-${ProjectName}-BlueTargetGroupName"

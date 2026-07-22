@@ -56,6 +56,19 @@ Resources:
         Project: !Ref ProjectName
         ManagedBy: CloudFormation-GitSync
 
+  DbSecretArnParam:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub "/${ProjectName}/${Environment}/rds/secret-arn"
+      Type: String
+      Description: RDS credentials secret ARN — GitHub Actions reads this to fill taskdef.json's secrets.valueFrom
+      Value:
+        Fn::ImportValue: !Sub "${Environment}-${ProjectName}-DBSecretArn"
+      Tags:
+        Environment: !Ref Environment
+        Project: !Ref ProjectName
+        ManagedBy: CloudFormation-GitSync
+
   ArtifactsBucketParam:
     Type: AWS::SSM::Parameter
     Properties:

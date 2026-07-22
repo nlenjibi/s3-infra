@@ -116,6 +116,19 @@ Resources:
         # ── Stage 1: Source ──────────────────────────────────────
         - Name: Source
           Actions:
+            - Name: ImageSource
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Provider: ECR
+                Version: '1'
+              Configuration:
+                RepositoryName: !Sub "${ProjectName}-java-app"
+                ImageTag: latest
+              OutputArtifacts:
+                - Name: SourceImage
+              RunOrder: 1
+
             - Name: DeployArtifactsSource
               ActionTypeId:
                 Category: Source
@@ -148,8 +161,11 @@ Resources:
                 TaskDefinitionTemplatePath: taskdef.json
                 AppSpecTemplateArtifact: DeployArtifacts
                 AppSpecTemplatePath: appspec.yaml
+                Image1ArtifactName: SourceImage
+                Image1ContainerName: IMAGE1_NAME
               InputArtifacts:
                 - Name: DeployArtifacts
+                - Name: SourceImage
               RunOrder: 1
 
       Tags:

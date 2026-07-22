@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: BEM13 ECS CICD | Stack 10 of 11 — RDS PostgreSQL, DB subnet group, RDS SG, Secrets Manager
+Description: BEM13 ECS CICD | Stack 10 of 11 — RDS PostgreSQL, DB subnet group, Secrets Manager
 
 Parameters:
   Environment:
@@ -26,31 +26,6 @@ Parameters:
     Default: '15.16'
 
 Resources:
-
-  # ── RDS Security Group ─────────────────────────────────────────
-  # Only ECS tasks may reach PostgreSQL — no public access.
-  RdsSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: RDS PostgreSQL inbound from ECS tasks only
-      VpcId:
-        Fn::ImportValue: !Sub "${Environment}-${ProjectName}-VpcId"
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 5432
-          ToPort: 5432
-          SourceSecurityGroupId:
-            Fn::ImportValue: !Sub "${Environment}-${ProjectName}-EcsSgId"
-          Description: PostgreSQL from ECS tasks only
-      Tags:
-        - Key: Name
-          Value: !Sub "${Environment}-${ProjectName}-rds-sg"
-        - Key: Environment
-          Value: !Ref Environment
-        - Key: Project
-          Value: !Ref ProjectName
-        - Key: ManagedBy
-          Value: CloudFormation-GitSync
 
   # ── DB Subnet Group ────────────────────────────────────────────
   # Uses the existing private subnets across two AZs.
@@ -118,7 +93,7 @@ Resources:
       MultiAZ: !Ref MultiAZ
       PubliclyAccessible: false
       VPCSecurityGroups:
-        - !Ref RdsSecurityGroup
+        - Fn::ImportValue: !Sub "${Environment}-${ProjectName}-RdsSgId"
       DBSubnetGroupName: !Ref DBSubnetGroup
       BackupRetentionPeriod: 7
       PreferredBackupWindow: 03:00-04:00
@@ -185,8 +160,3 @@ Outputs:
     Value: !Ref DBSecret
     Export:
       Name: !Sub "${Environment}-${ProjectName}-DBSecretArn"
-
-  RdsSgId:
-    Value: !Ref RdsSecurityGroup
-    Export:
-      Name: !Sub "${Environment}-${ProjectName}-RdsSgId"

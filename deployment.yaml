@@ -9,7 +9,6 @@ parameters:
   ProjectName: bem14
   TemplateBaseUrl: https://bem14-cloudformation-infra.s3.eu-west-1.amazonaws.com/prod/templates
   AppPort: 8080
-  TestListenerPort: 9090
   DesiredCount: 0
   MinCapacity: 1
   MaxCapacity: 4

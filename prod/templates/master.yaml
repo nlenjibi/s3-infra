@@ -19,9 +19,6 @@ Parameters:
   AppPort:
     Type: Number
     Default: 8080
-  TestListenerPort:
-    Type: Number
-    Default: 9090
   DesiredCount:
     Type: Number
     Default: 1
@@ -90,7 +87,6 @@ Resources:
         Environment: !Ref Environment
         ProjectName: !Ref ProjectName
         AppPort: !Ref AppPort
-        TestListenerPort: !Ref TestListenerPort
       Tags:
         - Key: Environment
           Value: !Ref Environment
@@ -146,7 +142,6 @@ Resources:
         Environment: !Ref Environment
         ProjectName: !Ref ProjectName
         AppPort: !Ref AppPort
-        TestListenerPort: !Ref TestListenerPort
       Tags:
         - Key: Environment
           Value: !Ref Environment
