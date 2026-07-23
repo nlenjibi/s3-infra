@@ -82,8 +82,9 @@ Resources:
         - IpProtocol: tcp
           FromPort: 443
           ToPort: 443
-          SourceSecurityGroupId: !Ref EcsSecurityGroup
-          Description: HTTPS from ECS tasks to endpoints
+          CidrIp:
+            Fn::ImportValue: !Sub "${Environment}-${ProjectName}-VpcCidr"
+          Description: HTTPS from within the VPC
       Tags:
         - Key: Name
           Value: !Sub "${Environment}-${ProjectName}-endpoint-sg"
